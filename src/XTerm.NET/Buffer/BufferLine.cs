@@ -24,7 +24,12 @@ public class BufferLine : IEnumerable<BufferCell>
     /// <summary>
     /// Shell-integration marks on this line, or null — which is every line that is not a prompt.
     /// </summary>
-    private List<LineMark>? _marks;
+    /// <remarks>
+    /// Volatile because <see cref="AddMark"/> publishes a new list rather than appending to this
+    /// one, and a reader on another thread must see the list fully built before it sees the
+    /// reference. Without the release/acquire pair that is not guaranteed on a weak memory model.
+    /// </remarks>
+    private volatile List<LineMark>? _marks;
 
     /// <summary>
     /// OSC 8 link spans on this line, or null — which is nearly every line.
@@ -471,6 +476,13 @@ public class BufferLine : IEnumerable<BufferCell>
     /// <summary>
     /// The shell-integration marks on this line, in the order they were emitted.
     /// </summary>
+    /// <remarks>
+    /// A snapshot: the list handed back is never mutated afterwards, because <see cref="AddMark"/>
+    /// publishes a new one instead of appending to it. That is what makes this readable from a
+    /// thread other than the one writing to the terminal, which is what shell integration actually
+    /// does — a host asks where the prompt is while the parser is still emitting marks, and
+    /// enumerating a live <see cref="List{T}"/> across an append throws.
+    /// </remarks>
     public IReadOnlyList<LineMark> Marks
         => (IReadOnlyList<LineMark>?)_marks ?? Array.Empty<LineMark>();
 
@@ -480,11 +492,31 @@ public class BufferLine : IEnumerable<BufferCell>
     /// <remarks>
     /// A line collects several: a prompt emits A and then B, and a command that produces no output
     /// finishes on the same line it started on.
+    ///
+    /// <para>Costs one small allocation per mark, which the snapshot in <see cref="Marks"/> is
+    /// worth: marks arrive a handful of times per command, not per cell, so this is nowhere near
+    /// the print path.</para>
     /// </remarks>
     internal void AddMark(LineMark mark)
     {
-        _marks ??= new List<LineMark>(1);
-        _marks.Add(mark);
+        // Copy on write, not Add — see Marks. Whoever already holds the published list keeps
+        // enumerating it unharmed; the reference swap is atomic, so a reader sees the old list or
+        // the new one and never a half-built one. Sized for the result so the Add below cannot
+        // reallocate on top of the copy.
+        var current = _marks;
+        List<LineMark> next;
+        if (current is null)
+        {
+            next = new List<LineMark>(1);
+        }
+        else
+        {
+            next = new List<LineMark>(current.Count + 1);
+            next.AddRange(current);
+        }
+
+        next.Add(mark);
+        _marks = next;
     }
 
     /// <summary>

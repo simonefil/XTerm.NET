@@ -225,4 +225,41 @@ public class ShellIntegrationMarkAnchorTests
         Assert.False(t.TryFindPreviousPrompt(t.Buffer.Lines.Length, out _));
         Assert.False(t.TryFindNextPrompt(-1, out _));
     }
+
+    /// <summary>
+    /// The list <see cref="BufferLine.Marks"/> hands back is a snapshot, so a host reading it can
+    /// finish reading it. A host does this from its UI thread while the parser is still writing on
+    /// whatever thread drains the pty; against a live list that append throws
+    /// <see cref="InvalidOperationException"/> mid-enumeration.
+    ///
+    /// <para>Written without threads on purpose: the property that fixes the race is
+    /// "an append does not touch a list already handed out", and that is exactly testable.
+    /// A thread test would only reproduce it sometimes and would pass on the broken code.</para>
+    /// </summary>
+    [Fact]
+    public void A_mark_list_stays_enumerable_while_more_marks_arrive()
+    {
+        var t = Fresh();
+        t.Write(Mark("A"));
+
+        using var reading = MarksOn(t, 0).GetEnumerator();
+        Assert.True(reading.MoveNext());
+
+        t.Write(Mark("B"));
+
+        Assert.False(reading.MoveNext());
+    }
+
+    [Fact]
+    public void A_mark_list_already_handed_out_does_not_grow()
+    {
+        var t = Fresh();
+        t.Write(Mark("A"));
+        var handedOut = MarksOn(t, 0);
+
+        t.Write(Mark("B"));
+
+        Assert.Single(handedOut);
+        Assert.Equal(2, MarksOn(t, 0).Count);
+    }
 }
