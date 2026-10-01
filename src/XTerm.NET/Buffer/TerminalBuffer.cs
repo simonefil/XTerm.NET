@@ -380,6 +380,10 @@ public class TerminalBuffer
             if (HasMultiRowSizedRuns)
                 EraseSizedRunsSplitBy(scrollRegionStart, scrollRegionEnd);
 
+            var exitingLine = _lines[scrollRegionEnd];
+            if (exitingLine is not null)
+                LineExitedViewport?.Invoke(exitingLine);
+
             // Remove line from scroll region bottom
             _lines.Splice(scrollRegionEnd, 1);
 

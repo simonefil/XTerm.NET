@@ -563,9 +563,19 @@ public class Terminal : IDisposable
     public event EventHandler<TerminalEvents.LineFeedEventArgs>? LineFed;
 
     /// <summary>
-    /// Fired before a line leaves the active viewport.
+    /// Fired synchronously before a line leaves the active viewport.
     /// </summary>
+    /// <remarks>
+    /// Consumers that need the row contents must snapshot them during the callback because the
+    /// underlying line may be recycled as soon as the handler returns.
+    /// </remarks>
     public event EventHandler<TerminalEvents.LineExitedViewportEventArgs>? LineExitedViewport;
+
+    /// <summary>
+    /// Fired synchronously when an absolute home or a non-selective full display erase can begin a redraw.
+    /// </summary>
+    /// <remarks>Snapshot the buffer during the callback, before its contents change.</remarks>
+    public event EventHandler? ViewportRedrawStarting;
 
     /// <summary>
     /// Fired when the current directory changes.
@@ -1176,6 +1186,7 @@ public class Terminal : IDisposable
         // Reset to normal buffer
         if (_usingAltBuffer)
         {
+            RaiseBufferDeactivatedLines(_altBuffer!);
             _buffer = _normalBuffer!;
             _usingAltBuffer = false;
             _inputHandler.SetBuffer(_buffer);
@@ -2157,6 +2168,12 @@ public class Terminal : IDisposable
         LineExitedViewport?.Invoke(this, new TerminalEvents.LineExitedViewportEventArgs(line, buffer, reason));
     }
 
+    /// <summary>Raises the synchronous snapshot opportunity at a potential redraw boundary.</summary>
+    internal void RaiseViewportRedrawStarting()
+    {
+        ViewportRedrawStarting?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Raises exit events for the meaningful rows of a buffer before deactivation.</summary>
     private void RaiseBufferDeactivatedLines(Buffer.TerminalBuffer buffer)
     {
@@ -2230,6 +2247,7 @@ public class Terminal : IDisposable
         Scrolled = null;
         LineFed = null;
         LineExitedViewport = null;
+        ViewportRedrawStarting = null;
         DirectoryChanged = null;
         HyperlinkChanged = null;
         ShellIntegrationMarkReceived = null;
