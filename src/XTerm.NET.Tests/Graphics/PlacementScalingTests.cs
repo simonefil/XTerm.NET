@@ -73,6 +73,78 @@ public class PlacementScalingTests
     }
 
     [Fact]
+    public void A_one_pixel_image_stretched_over_a_box_covers_every_row()
+    {
+        // The overlay idiom: one translucent pixel stretched over a rectangle of cells to tint it.
+        // Each cell gets a fraction of a source pixel, which sliced to nothing and dropped the
+        // placement entirely.
+        var terminal = Fresh();
+        terminal.Write(Apc("a=t,i=1,f=32,s=1,v=1,q=2", SolidRgba(1, 1)));
+        terminal.Write(Apc("a=p,i=1,c=2,r=3,q=2"));
+
+        for (int row = 0; row < 3; row++)
+        {
+            var strip = FirstPlacement(terminal, row);
+            Assert.Equal(0, strip.Column);
+            Assert.Equal(2, strip.Cols);
+            Assert.Equal(0, strip.SrcY);
+            Assert.Equal(1, strip.SrcHeight);
+        }
+
+        Assert.Empty(terminal.Buffer.Lines[terminal.Buffer.YBase + 3]!.Placements);
+    }
+
+    [Fact]
+    public void An_image_stretched_up_gives_every_row_a_source_pixel()
+    {
+        // 2x2 over 5x5 cells of 3 pixel rows: 2 source rows over a 15 pixel box. Rows 0, 1 and 3
+        // fall inside a single source row and take the one under their centre; rows 2 and 4 span
+        // a whole pixel and keep the floor, as stretched strips always have.
+        var terminal = Fresh();
+        terminal.Write(Apc("a=t,i=1,f=32,s=2,v=2,q=2", SolidRgba(2, 2)));
+        terminal.Write(Apc("a=p,i=1,c=5,r=5,q=2"));
+
+        var sourceRows = Enumerable.Range(0, 5).Select(row => FirstPlacement(terminal, row).SrcY).ToArray();
+
+        Assert.Equal(new[] { 0, 0, 0, 1, 1 }, sourceRows);
+        Assert.All(Enumerable.Range(0, 5), row => Assert.Equal(1, FirstPlacement(terminal, row).SrcHeight));
+    }
+
+    [Fact]
+    public void An_image_stretched_down_still_slices_whole_pixels_per_row()
+    {
+        // The sub-pixel rule only applies when a cell would get no pixels at all; shrinking keeps
+        // the proportional slices it always had.
+        var terminal = Fresh();
+        terminal.Write(Apc("a=t,i=1,f=32,s=8,v=9,q=2", SolidRgba(8, 9)));
+        terminal.Write(Apc("a=p,i=1,c=2,r=3,q=2"));
+
+        for (int row = 0; row < 3; row++)
+        {
+            var strip = FirstPlacement(terminal, row);
+            Assert.Equal(row * 3, strip.SrcY);
+            Assert.Equal(3, strip.SrcHeight);
+        }
+    }
+
+    [Fact]
+    public void A_sub_pixel_tile_reports_the_source_pixel_under_its_centre()
+    {
+        // Three source pixels over four 2 pixel cells: cell 0 covers source [0, 0.75) and would
+        // slice to nothing; every cell must show one pixel.
+        var image = new TerminalImage(new byte[3 * 4], 3, 1, cellWidth: 2, cellHeight: 3);
+        var placement = new ImagePlacement(image, 0, 0, 0, 3, 1, 4, 1, ImageScaling.Stretched);
+
+        var tiles = Enumerable.Range(0, 4)
+            .Select(col => placement.TryGetTileSource(col, 0, out var x, out _, out var width, out _)
+                ? (X: x, Width: width)
+                : (X: -1, Width: 0))
+            .ToArray();
+
+        Assert.Equal(new[] { (0, 1), (0, 1), (1, 1), (2, 1) }, tiles.Select(t => (t.X, t.Width)));
+    }
+
+    [Fact]
     public void Slicing_a_run_keeps_the_scaling_context()
     {
         // Sixel runs are split when text prints into them; the surviving parts must keep drawing
