@@ -174,6 +174,42 @@ public class KittyDeleteTests
         Assert.Equal(4, TileCount(terminal));
     }
 
+    /// <summary>
+    /// notcurses' actual sequence: before most moves it transmits the sprite's pixels again under
+    /// the SAME id, then re-places p=1. The re-transmission stores a new image, and the appearance
+    /// being moved belongs to the one it replaced -- matching on the image object missed it and
+    /// left a copy at every step.
+    /// </summary>
+    [Fact]
+    public void A_move_after_retransmitting_under_the_same_id_still_moves()
+    {
+        var terminal = Fresh();
+        terminal.Write(Apc("a=t,i=7,p=1,f=32,s=4,v=6,q=2", Pixels()));
+        terminal.Write($"{Esc}[1;1H" + Apc("a=p,i=7,p=1,q=2"));
+
+        terminal.Write(Apc("a=t,i=7,p=1,f=32,s=4,v=6,q=2", Pixels()));
+        terminal.Write($"{Esc}[5;10H" + Apc("a=p,i=7,p=1,q=2"));
+
+        Assert.False(HasImage(terminal, 0, 0), "the appearance placed before the re-transmission should have moved");
+        Assert.True(HasImage(terminal, 9, 4));
+        Assert.Equal(4, TileCount(terminal));
+    }
+
+    /// <summary>And deleting the id takes appearances of every transmission under it.</summary>
+    [Fact]
+    public void Deleting_an_id_reaches_appearances_placed_before_it_was_retransmitted()
+    {
+        var terminal = Fresh();
+        terminal.Write(Apc("a=t,i=7,f=32,s=4,v=6,q=2", Pixels()));
+        terminal.Write($"{Esc}[1;1H" + Apc("a=p,i=7,q=2"));
+        terminal.Write(Apc("a=t,i=7,f=32,s=4,v=6,q=2", Pixels()));
+        terminal.Write($"{Esc}[5;10H" + Apc("a=p,i=7,q=2"));
+
+        terminal.Write(Apc("a=d,d=I,i=7"));
+
+        Assert.Equal(0, TileCount(terminal));
+    }
+
     /// <summary>The replacement is of that one pair: other placement ids stay where they are.</summary>
     [Fact]
     public void Moving_one_placement_leaves_the_others_of_that_image()

@@ -59,6 +59,18 @@ public readonly struct LinePlacement
     /// </summary>
     public readonly int PlacementId;
 
+    /// <summary>
+    /// The id the CLIENT knows the image by (Kitty's <c>i=</c>). Zero for Sixel.
+    /// </summary>
+    /// <remarks>
+    /// Not the same as <see cref="ImageId"/>. A client may transmit again under an id it already
+    /// used, and that stores a new <see cref="TerminalImage"/> with a new <see cref="ImageId"/> --
+    /// while the client goes on naming the image by the same <c>i=</c>. notcurses re-sends a
+    /// sprite's pixels under one id on every move, so a move or delete matched on
+    /// <see cref="ImageId"/> missed every appearance placed before the last transmission.
+    /// </remarks>
+    public readonly uint ClientImageId;
+
     /// <summary>The column on this line where the run starts.</summary>
     public readonly int Column;
 
@@ -129,8 +141,10 @@ public readonly struct LinePlacement
         short zIndex = 0,
         int serial = 0,
         float pxPerCellX = 0,
-        float pxPerCellY = 0)
+        float pxPerCellY = 0,
+        uint clientImageId = 0)
     {
+        ClientImageId = clientImageId;
         PxPerCellX = pxPerCellX;
         PxPerCellY = pxPerCellY;
         ImageId = imageId;
@@ -188,6 +202,6 @@ public readonly struct LinePlacement
             ImageId, column, cols,
             srcX, SrcY,
             System.Math.Min(width, System.Math.Max(0, SrcX + SrcWidth - srcX)), SrcHeight,
-            Kind, PlacementId, OffsetX, OffsetY, ZIndex, Serial, PxPerCellX, PxPerCellY);
+            Kind, PlacementId, OffsetX, OffsetY, ZIndex, Serial, PxPerCellX, PxPerCellY, ClientImageId);
     }
 }

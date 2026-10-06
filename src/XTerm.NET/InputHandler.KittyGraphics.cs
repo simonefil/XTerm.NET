@@ -409,7 +409,7 @@ public partial class InputHandler
         _kittyImages.Store(id, image, _terminal.Options.MaxImageRegistryBytes, command.ImageNumber);
 
         if (command.Action == Graphics.KittyAction.TransmitAndDisplay)
-            PlaceKittyImage(image, command);
+            PlaceKittyImage(image, command, id);
 
         ReplyToKitty(command, Graphics.KittyError.None, id);
     }
@@ -655,7 +655,7 @@ public partial class InputHandler
             return;
         }
 
-        PlaceKittyImage(image, command);
+        PlaceKittyImage(image, command, id);
         ReplyToKitty(command, Graphics.KittyError.None, id);
     }
 
@@ -687,7 +687,8 @@ public partial class InputHandler
     /// <summary>
     /// Turns a Kitty display command into a placement and writes it into the buffer.
     /// </summary>
-    private void PlaceKittyImage(Graphics.TerminalImage image, Graphics.KittyCommand command)
+    /// <param name="clientId">The id the client knows the image by, resolved from i= or I=.</param>
+    private void PlaceKittyImage(Graphics.TerminalImage image, Graphics.KittyCommand command, uint clientId)
     {
         // A placeholder placement is shown by cells the client writes as text, not here.
         if (command.UnicodePlaceholder)
@@ -720,14 +721,18 @@ public partial class InputHandler
         // every sprite by re-sending a=p,i=N,p=1 at the new cursor position; appending instead left
         // a copy behind at every position the sprite had passed through. Without a p there is no
         // pair to name, and each put is a new appearance.
+        //
+        // Matched on the CLIENT's id, not the image object: notcurses also re-transmits the pixels
+        // under the same i= before most moves, which stores a new image, and the appearance being
+        // moved belongs to the one it replaced.
         if (command.PlacementId != 0)
         {
             _terminal.DropPlacements(p => p.Kind == Graphics.PlacementKind.Kitty
-                                          && p.ImageId == image.Id
+                                          && p.ClientImageId == clientId
                                           && p.PlacementId == command.PlacementId);
         }
 
-        PlaceImage(placement, Graphics.PlacementKind.Kitty, command.KeepCursor);
+        PlaceImage(placement, Graphics.PlacementKind.Kitty, command.KeepCursor, clientId);
     }
 
     /// <summary>
@@ -833,17 +838,26 @@ public partial class InputHandler
                 return;
         }
 
+        // By the client's id as well as the image object. Appearances placed before the client last
+        // re-transmitted under this id show an image that has since been replaced in the registry,
+        // and the client still means them when it names the id -- missing them left notcurses'
+        // sprites on screen after it deleted them.
         if (command.PlacementId != 0)
         {
-            _terminal.DropPlacements(p => p.ImageId == image.Id && p.PlacementId == command.PlacementId);
+            _terminal.DropPlacements(p => (p.ImageId == image.Id || IsKittyPlacementOf(p, id))
+                                          && p.PlacementId == command.PlacementId);
             return;
         }
 
         _terminal.DropImage(image);
+        _terminal.DropPlacements(p => IsKittyPlacementOf(p, id));
 
         if (alsoFree)
             _kittyImages.Remove(id);
     }
+
+    private static bool IsKittyPlacementOf(Graphics.LinePlacement placement, uint clientId)
+        => placement.Kind == Graphics.PlacementKind.Kitty && placement.ClientImageId == clientId;
 
     /// <summary>Removes every placement covering one screen cell.</summary>
     private void DropPlacementsAt(int col, int row, bool alsoFree)
@@ -945,7 +959,8 @@ public partial class InputHandler
     /// </remarks>
     private void PlaceImage(Graphics.ImagePlacement placement,
                             Graphics.PlacementKind kind,
-                            bool keepCursor = false)
+                            bool keepCursor = false,
+                            uint clientImageId = 0)
     {
         // DECSDM set means the older display behaviour: pinned to the top-left, clipped rather
         // than scrolled, cursor untouched.
@@ -1015,7 +1030,8 @@ public partial class InputHandler
                             : (float)placement.SourceWidth / placement.Cols,
                         pxPerCellY: placement.Scaling == Graphics.ImageScaling.Natural
                             ? 0
-                            : (float)placement.SourceHeight / placement.Rows),
+                            : (float)placement.SourceHeight / placement.Rows,
+                        clientImageId: clientImageId),
                     placement.Image);
             }
 
