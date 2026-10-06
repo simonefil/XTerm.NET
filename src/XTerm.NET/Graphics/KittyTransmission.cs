@@ -37,8 +37,11 @@ internal sealed class KittyTransmission
 {
     private readonly StringBuilder _payload = new();
 
-    /// <summary>The control data from the first chunk, which is the one that carries it.</summary>
-    public KittyCommand Command { get; }
+    /// <summary>
+    /// The control data from the first chunk, which is the one that carries it -- except for the
+    /// quiet level, which a later chunk may still set (see <see cref="ApplyContinuation"/>).
+    /// </summary>
+    public KittyCommand Command { get; private set; }
 
     /// <summary>How much base64 has arrived so far, for the size guard.</summary>
     public int PayloadLength => _payload.Length;
@@ -49,6 +52,21 @@ internal sealed class KittyTransmission
     }
 
     public void Append(ReadOnlySpan<char> base64) => _payload.Append(base64);
+
+    /// <summary>
+    /// Takes what a continuation chunk is allowed to say beyond its payload: <c>q</c>.
+    /// </summary>
+    /// <remarks>
+    /// The protocol lets later chunks carry "only the m and optionally q keys", and notcurses uses
+    /// exactly that -- its first chunk has no q and its LAST says q=2. Reading q from the first chunk
+    /// alone answered OK to a client that had asked for silence, and once it exited the reply landed
+    /// in the shell as typed input: "Gi=13871133;OK" at the prompt.
+    /// </remarks>
+    public void ApplyContinuation(KittyCommand chunk)
+    {
+        if (chunk.Quiet != 0)
+            Command = Command with { Quiet = chunk.Quiet };
+    }
 
     /// <summary>
     /// Turns everything collected into pixels.
