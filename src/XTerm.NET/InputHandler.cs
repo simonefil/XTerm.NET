@@ -2004,6 +2004,10 @@ public partial class InputHandler
                     _terminal.GetMouseTracker().Encoding = MouseEncoding.URXVT;
                     break;
 
+                case TerminalMode.MouseReportPixel:
+                    _terminal.GetMouseTracker().Encoding = MouseEncoding.SGRPixels;
+                    break;
+
                 case TerminalMode.EightBitInput:
                     _terminal.EightBitInput = true;
                     break;

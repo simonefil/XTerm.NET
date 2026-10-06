@@ -107,6 +107,7 @@ public class RequestModeTests
     [InlineData(6)]     // origin
     [InlineData(1000)]  // VT200 mouse
     [InlineData(1006)]  // SGR mouse encoding
+    [InlineData(1016)]  // SGR-Pixels mouse encoding
     [InlineData(1049)]  // alternate buffer
     [InlineData(2004)]  // bracketed paste
     [InlineData(2026)]  // synchronized output
@@ -202,6 +203,30 @@ public class RequestModeTests
     }
 
     /// <summary>
+    /// SGR-Pixels is one more choice in that same selection. An application probing for it with
+    /// DECRQM before switching has to hear "supported" -- a 0 reply sends it back to cell reports --
+    /// and once it is on, 1006 is not, because the reports no longer carry cells.
+    /// </summary>
+    [Fact]
+    public void Reports_sgr_pixels_as_a_mouse_encoding_selection()
+    {
+        var terminal = Fresh();
+
+        terminal.Write(Set(1016));
+        var replies = Replies(terminal);
+        terminal.Write(Query(1016));
+        terminal.Write(Query(1006));
+
+        Assert.Equal(new[] { Report(1016, true), Report(1006, false) }, replies);
+
+        replies.Clear();
+        terminal.Write(Reset(1016));
+        terminal.Write(Query(1016));
+
+        Assert.Equal(new[] { Report(1016, false) }, replies);
+    }
+
+    /// <summary>
     /// The three alternate-buffer modes differ only in the cursor and erase work they do on the way
     /// in and out; there is one buffer, so they read alike. An application that entered with 1049
     /// and asks about 47 is asking "am I on the alternate screen", and the answer is yes.
@@ -239,7 +264,6 @@ public class RequestModeTests
     [Theory]
     [InlineData(1035)]   // NumLock modifiers
     [InlineData(1001)]   // highlight mouse tracking, not implemented
-    [InlineData(1016)]   // pixel-position mouse, not implemented
     [InlineData(64738)]  // not a mode at all
     public void Reports_not_recognised_for_modes_it_keeps_no_state_for(int mode)
     {

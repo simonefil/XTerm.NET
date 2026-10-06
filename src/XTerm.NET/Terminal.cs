@@ -1729,6 +1729,23 @@ public class Terminal : IDisposable
     }
 
     /// <summary>
+    /// Generates an escape sequence for a mouse event, with the pointer's pixel position for
+    /// SGR-Pixels reporting (DECSET 1016).
+    /// </summary>
+    /// <param name="button">The mouse button</param>
+    /// <param name="x">The column position (0-based)</param>
+    /// <param name="y">The row position (0-based)</param>
+    /// <param name="pixelX">Horizontal offset from the left of the cell area, in device pixels (0-based)</param>
+    /// <param name="pixelY">Vertical offset from the top of the cell area, in device pixels (0-based)</param>
+    /// <param name="eventType">The type of mouse event</param>
+    /// <param name="modifiers">Modifier keys held during the event</param>
+    /// <returns>The escape sequence string to send to the application</returns>
+    public string GenerateMouseEvent(MouseButton button, int x, int y, int pixelX, int pixelY, MouseEventType eventType, KeyModifiers modifiers = KeyModifiers.None)
+    {
+        return _mouseTracker.GenerateMouseEvent(button, x, y, pixelX, pixelY, eventType, modifiers);
+    }
+
+    /// <summary>
     /// Generates an escape sequence for a focus event (focus in/out).
     /// </summary>
     /// <param name="focused">True if focused, false if lost focus</param>

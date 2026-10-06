@@ -24,6 +24,11 @@ public static class Esc
     public const string ClearScreen = "\u001b[2J";
     public const string ClearLine = "\u001b[2K";
 
+    // mouse reporting (DECSET)
+    public const string EnableMouseTracking = "\u001b[?1000h";
+    public const string EnableSgrMouse = "\u001b[?1006h";
+    public const string EnableSgrPixelsMouse = "\u001b[?1016h";
+
     /// <summary>A control sequence: ESC [ followed by the body.</summary>
     public static string Csi(string body)
     {
@@ -41,6 +46,19 @@ public static class Esc
     public static string SetCursorPosition(int x, int y)
     {
         return $"\u001b[{y + 1};{x + 1}H";
+    }
+
+    /// <summary>
+    ///     An SGR mouse report (1006, or 1016 in pixels), taking a zero-based cell or pixel.
+    /// </summary>
+    /// <remarks>
+    ///     One-based on the wire like CUP, and converted here for the same reason. The terminator
+    ///     is the only thing telling a press from a release, so it comes from a flag rather than a
+    ///     hand-typed M or m.
+    /// </remarks>
+    public static string SgrMouseReport(int button, int x, int y, bool press = true)
+    {
+        return $"\u001b[<{button};{x + 1};{y + 1}{(press ? 'M' : 'm')}";
     }
 
     /// <summary>
