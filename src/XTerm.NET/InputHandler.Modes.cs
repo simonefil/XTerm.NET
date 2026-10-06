@@ -168,6 +168,9 @@ public partial class InputHandler
             case (int)TerminalMode.MouseReportUrxvt:
                 set = mouseTracker.Encoding == MouseEncoding.URXVT;
                 return true;
+            case (int)TerminalMode.MouseReportPixel:
+                set = mouseTracker.Encoding == MouseEncoding.SGRPixels;
+                return true;
             case (int)TerminalMode.SendFocusEvents:
                 set = _terminal.SendFocusEvents;
                 return true;
@@ -449,6 +452,7 @@ public partial class InputHandler
                 case TerminalMode.MouseReportUtf8:
                 case TerminalMode.MouseReportSgr:
                 case TerminalMode.MouseReportUrxvt:
+                case TerminalMode.MouseReportPixel:
                     _terminal.GetMouseTracker().Encoding = MouseEncoding.Default;
                     break;
 

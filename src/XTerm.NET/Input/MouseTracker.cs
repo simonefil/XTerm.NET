@@ -28,6 +28,25 @@ public class MouseTracker
     /// </summary>
     public string GenerateMouseEvent(MouseButton button, int x, int y, MouseEventType eventType, KeyModifiers modifiers = KeyModifiers.None)
     {
+        // A host that only knows the cell still gets an answer in pixel mode: the cell's top-left
+        // corner, from the same cell metrics a CSI 16 t query reports. An application dividing by
+        // those metrics recovers exactly the cell that was clicked -- which is all this host knows.
+        return GenerateMouseEvent(button, x, y,
+            x * Math.Max(1, _terminal.Options.CellWidthPixels),
+            y * Math.Max(1, _terminal.Options.CellHeightPixels),
+            eventType, modifiers);
+    }
+
+    /// <summary>
+    /// Generates a mouse event sequence for a host that knows the pointer's pixel position.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="pixelX"/> and <paramref name="pixelY"/> are 0-based offsets from the top-left
+    /// of the cell area, in the same device pixels as <c>CellWidthPixels</c>. They are used only
+    /// under SGR-Pixels (DECSET 1016); every other encoding reports the cell.
+    /// </remarks>
+    public string GenerateMouseEvent(MouseButton button, int x, int y, int pixelX, int pixelY, MouseEventType eventType, KeyModifiers modifiers = KeyModifiers.None)
+    {
         // Check if this mode supports this event type
         if (!ShouldReportEvent(button, eventType))
             return string.Empty;
@@ -39,6 +58,9 @@ public class MouseTracker
         return Encoding switch
         {
             MouseEncoding.SGR => GenerateSGRSequence(button, x, y, eventType, modifiers),
+            // 1016 is 1006 with the coordinates swapped for pixels -- same button byte, same M/m
+            // terminator, and 1-based like xterm's (EmitMousePosition adds one in both modes).
+            MouseEncoding.SGRPixels => GenerateSGRSequence(button, Math.Max(0, pixelX), Math.Max(0, pixelY), eventType, modifiers),
             MouseEncoding.URXVT => GenerateURXVTSequence(button, x, y, eventType, modifiers),
             MouseEncoding.Utf8 => GenerateUTF8Sequence(button, x, y, eventType, modifiers),
             _ => GenerateDefaultSequence(button, x, y, eventType, modifiers)

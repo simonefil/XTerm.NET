@@ -233,6 +233,19 @@ public sealed class ImagePlacement
         var low = sourceStart + (int)((long)(visibleLow - offset) * sourceSize / span);
         var high = sourceStart + (int)((long)(visibleHigh - offset) * sourceSize / span);
 
+        // A picture stretched UP -- fewer source pixels than the box has screen pixels -- can give a
+        // cell less than one source pixel, and then the floors above meet: a 1x1 image over two
+        // columns maps cell 0 to [0, 0). Rejecting that dropped the whole placement, because the
+        // caller decides each row from its first cell. The cell is showing part of a single source
+        // pixel, so it takes the one under its centre.
+        if (high <= low)
+        {
+            var centre = sourceStart +
+                         (int)((long)(visibleLow + visibleHigh - 2 * offset) * sourceSize / (2L * span));
+            low = Math.Clamp(centre, sourceStart, sourceStart + sourceSize - 1);
+            high = low + 1;
+        }
+
         from = low;
         size = high - low;
         cellOffset = (visibleLow - boxLow) / (double)cellSize;

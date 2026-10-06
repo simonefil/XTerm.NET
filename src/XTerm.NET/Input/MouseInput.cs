@@ -47,4 +47,5 @@ public enum MouseEncoding
     Utf8,       // UTF-8 encoding (CSI ? 1005 h)
     SGR,        // SGR format (CSI ? 1006 h) - recommended
     URXVT,      // URXVT format (CSI ? 1015 h)
+    SGRPixels,  // SGR format with pixel coordinates (CSI ? 1016 h)
 }
