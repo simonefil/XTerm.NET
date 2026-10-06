@@ -715,6 +715,18 @@ public partial class InputHandler
             stretched ? Graphics.ImageScaling.Stretched : Graphics.ImageScaling.Natural,
             command.ZIndex, command.OffsetX, command.OffsetY);
 
+        // An image id and placement id together name ONE appearance, and a put naming a pair that
+        // already exists replaces it -- which is how a client moves a picture. notcurses animates
+        // every sprite by re-sending a=p,i=N,p=1 at the new cursor position; appending instead left
+        // a copy behind at every position the sprite had passed through. Without a p there is no
+        // pair to name, and each put is a new appearance.
+        if (command.PlacementId != 0)
+        {
+            _terminal.DropPlacements(p => p.Kind == Graphics.PlacementKind.Kitty
+                                          && p.ImageId == image.Id
+                                          && p.PlacementId == command.PlacementId);
+        }
+
         PlaceImage(placement, Graphics.PlacementKind.Kitty, command.KeepCursor);
     }
 
