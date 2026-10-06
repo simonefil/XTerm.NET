@@ -302,14 +302,14 @@ public class MouseTrackingTests
     public void MouseEvent_SGRPixels_ReportsOneBasedPixelPosition()
     {
         var terminal = CreateTerminal();
-        terminal.Write("[?1000h[?1016h");
+        terminal.Write(Esc.Csi("?1000h") + Esc.Csi("?1016h"));
 
         var down = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, 57, 213, MouseEventType.Down);
         var up = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, 57, 213, MouseEventType.Up);
 
         Assert.Equal(MouseEncoding.SGRPixels, terminal.MouseEncoding);
-        Assert.Equal("[<0;58;214M", down);
-        Assert.Equal("[<0;58;214m", up);
+        Assert.Equal(Esc.Csi("<0;58;214M"), down);
+        Assert.Equal(Esc.Csi("<0;58;214m"), up);
     }
 
     [Fact]
@@ -318,22 +318,22 @@ public class MouseTrackingTests
         // A host that never learned the pixel overload still answers in pixels, at the clicked
         // cell's top-left, so dividing by the CSI 16 t cell size lands back on that cell.
         var terminal = new Terminal(new TerminalOptions { Cols = 80, Rows = 24, CellWidthPixels = 9, CellHeightPixels = 18 });
-        terminal.Write("[?1000h[?1016h");
+        terminal.Write(Esc.Csi("?1000h") + Esc.Csi("?1016h"));
 
         var sequence = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, MouseEventType.Down);
 
-        Assert.Equal("[<0;46;181M", sequence);
+        Assert.Equal(Esc.Csi("<0;46;181M"), sequence);
     }
 
     [Fact]
     public void MouseEvent_PixelOverload_UnderSGR_StillReportsCells()
     {
         var terminal = CreateTerminal();
-        terminal.Write("[?1000h[?1006h");
+        terminal.Write(Esc.Csi("?1000h") + Esc.Csi("?1006h"));
 
         var sequence = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, 57, 213, MouseEventType.Down);
 
-        Assert.Equal("[<0;6;11M", sequence);
+        Assert.Equal(Esc.Csi("<0;6;11M"), sequence);
     }
 
     #endregion
