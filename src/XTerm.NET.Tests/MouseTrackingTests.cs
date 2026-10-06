@@ -302,14 +302,14 @@ public class MouseTrackingTests
     public void MouseEvent_SGRPixels_ReportsOneBasedPixelPosition()
     {
         var terminal = CreateTerminal();
-        terminal.Write(Esc.Csi("?1000h") + Esc.Csi("?1016h"));
+        terminal.Write(Esc.EnableMouseTracking + Esc.EnableSgrPixelsMouse);
 
         var down = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, 57, 213, MouseEventType.Down);
         var up = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, 57, 213, MouseEventType.Up);
 
         Assert.Equal(MouseEncoding.SGRPixels, terminal.MouseEncoding);
-        Assert.Equal(Esc.Csi("<0;58;214M"), down);
-        Assert.Equal(Esc.Csi("<0;58;214m"), up);
+        Assert.Equal(Esc.SgrMouseReport(0, 57, 213), down);
+        Assert.Equal(Esc.SgrMouseReport(0, 57, 213, press: false), up);
     }
 
     [Fact]
@@ -318,22 +318,22 @@ public class MouseTrackingTests
         // A host that never learned the pixel overload still answers in pixels, at the clicked
         // cell's top-left, so dividing by the CSI 16 t cell size lands back on that cell.
         var terminal = new Terminal(new TerminalOptions { Cols = 80, Rows = 24, CellWidthPixels = 9, CellHeightPixels = 18 });
-        terminal.Write(Esc.Csi("?1000h") + Esc.Csi("?1016h"));
+        terminal.Write(Esc.EnableMouseTracking + Esc.EnableSgrPixelsMouse);
 
         var sequence = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, MouseEventType.Down);
 
-        Assert.Equal(Esc.Csi("<0;46;181M"), sequence);
+        Assert.Equal(Esc.SgrMouseReport(0, 5 * 9, 10 * 18), sequence);
     }
 
     [Fact]
     public void MouseEvent_PixelOverload_UnderSGR_StillReportsCells()
     {
         var terminal = CreateTerminal();
-        terminal.Write(Esc.Csi("?1000h") + Esc.Csi("?1006h"));
+        terminal.Write(Esc.EnableMouseTracking + Esc.EnableSgrMouse);
 
         var sequence = terminal.GenerateMouseEvent(MouseButton.Left, 5, 10, 57, 213, MouseEventType.Down);
 
-        Assert.Equal(Esc.Csi("<0;6;11M"), sequence);
+        Assert.Equal(Esc.SgrMouseReport(0, 5, 10), sequence);
     }
 
     #endregion
