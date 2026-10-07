@@ -1186,7 +1186,8 @@ public class Terminal : IDisposable
         // Reset to normal buffer
         if (_usingAltBuffer)
         {
-            RaiseBufferDeactivatedLines(_altBuffer!);
+            if (LineExitedViewport is not null)
+                RaiseBufferDeactivatedLines(_altBuffer!);
             _buffer = _normalBuffer!;
             _usingAltBuffer = false;
             _inputHandler.SetBuffer(_buffer);
@@ -2038,7 +2039,8 @@ public class Terminal : IDisposable
         if (_statusLineActive)
             SetActiveStatusDisplay(0);
 
-        RaiseBufferDeactivatedLines(_normalBuffer!);
+        if (LineExitedViewport is not null)
+            RaiseBufferDeactivatedLines(_normalBuffer!);
         var x = _buffer.X;
         var y = _buffer.Y;
         _buffer = _altBuffer!;
@@ -2075,7 +2077,8 @@ public class Terminal : IDisposable
         if (_statusLineActive)
             SetActiveStatusDisplay(0);
 
-        RaiseBufferDeactivatedLines(_altBuffer!);
+        if (LineExitedViewport is not null)
+            RaiseBufferDeactivatedLines(_altBuffer!);
         var x = _buffer.X;
         var y = _buffer.Y;
         _buffer = _normalBuffer!;
@@ -2196,7 +2199,7 @@ public class Terminal : IDisposable
     {
         var firstLine = buffer.BaseY;
         var lastLine = Math.Min(firstLine + Rows, buffer.Lines.Length) - 1;
-        while (lastLine >= firstLine && buffer.Lines[lastLine]?.GetTrimmedLength() == 0)
+        while (lastLine >= firstLine && buffer.Lines[lastLine]?.HasSnapshotContent() == false)
             lastLine--;
 
         for (int i = firstLine; i <= lastLine; i++)
