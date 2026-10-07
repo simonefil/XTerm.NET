@@ -273,6 +273,7 @@ public partial class InputHandler
         if (_kittyTransmission is not null)
         {
             _kittyTransmission.Append(payload);
+            _kittyTransmission.ApplyContinuation(command);
 
             // The cap MaxKittyPayloadChars was written for, finally applied where it matters.
             // It was only ever enforced on _apcPayload, which bounds ONE escape sequence -- but a

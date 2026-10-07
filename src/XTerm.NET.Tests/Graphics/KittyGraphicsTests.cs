@@ -328,6 +328,40 @@ public class KittyGraphicsTests
         Assert.True(replies.Count > 0 == expectReply, what);
     }
 
+    /// <summary>
+    /// A later chunk may carry q, and notcurses relies on it: its first chunk names no q and its LAST
+    /// says q=2. Taking q from the first chunk alone answered OK to a client that had asked for
+    /// silence -- and after it exited, the reply reached the shell as typed input.
+    /// </summary>
+    [Fact]
+    public void Quiet_on_the_last_chunk_silences_the_reply()
+    {
+        var terminal = Fresh();
+        var replies = Replies(terminal);
+        var payload = SolidRgba(4, 6, 1, 2, 3);
+        var half = payload.Length / 2;
+
+        terminal.Write(Apc("f=32,s=4,v=6,i=31,p=1,a=t,m=1", payload[..half]));
+        terminal.Write(Apc("m=1", payload[half..]));
+        terminal.Write(Apc("q=2,m=0"));
+
+        Assert.Empty(replies);
+    }
+
+    /// <summary>The other half: with no q on any chunk, the reply still comes.</summary>
+    [Fact]
+    public void A_chunked_transmission_without_quiet_still_replies()
+    {
+        var terminal = Fresh();
+        var replies = Replies(terminal);
+        var payload = SolidRgba(4, 6, 1, 2, 3);
+
+        terminal.Write(Apc("f=32,s=4,v=6,i=31,a=t,m=1", payload));
+        terminal.Write(Apc("m=0"));
+
+        Assert.Equal($"{Esc}_Gi=31;OK{St}", Assert.Single(replies));
+    }
+
     [Fact]
     public void A_failure_is_still_reported_under_q_equals_one()
     {
